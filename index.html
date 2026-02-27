@@ -1,1 +1,431 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>My Vocab Ultimate</title>
 
+<style>
+*{box-sizing:border-box;font-family:-apple-system,BlinkMacSystemFont,sans-serif}
+body{margin:0;background:#f3f5f9}
+
+header{position:sticky;top:0;background:#fff;padding:14px;box-shadow:0 2px 6px rgba(0,0,0,.08);z-index:10}
+h1{margin:0;font-size:22px}
+.count{font-size:13px;color:#666;margin-top:2px}
+
+.controls{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+button{border:none;border-radius:10px;padding:10px 12px;font-size:14px}
+
+.import{background:#1e88e5;color:#fff}
+.export{background:#6a5acd;color:#fff}
+.deleteall{background:#e53935;color:#fff}
+.favbtn{background:#f39c12;color:#fff}
+.refresh{background:#27ae60;color:#fff}
+.pronounce{background:#14b8a6;color:#fff}
+.add{background:#e3f2fd}
+
+.search{margin-top:10px;width:100%;padding:12px;border-radius:12px;border:1px solid #ccc;font-size:16px}
+
+main{padding:14px}
+
+.card{background:#fff;border-radius:14px;padding:14px;margin-bottom:12px;position:relative}
+.word{font-weight:700;font-size:18px;cursor:pointer}
+.pron{color:#26a69a;margin-top:2px}
+.meaning{margin-top:2px}
+.icons{margin-top:6px}
+.icons span{font-size:20px;margin-right:8px}
+.star{position:absolute;right:12px;top:12px;font-size:22px;cursor:pointer}
+
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.35);display:none;align-items:center;justify-content:center;padding:14px;z-index:99}
+.modal-content{background:#fff;border-radius:16px;padding:14px;width:100%;max-width:420px}
+
+.modal-content input,.modal-content textarea{
+width:100%;margin-bottom:10px;padding:12px;border-radius:10px;border:1px solid #ccc;font-size:16px
+}
+
+.modal-actions{display:flex;gap:10px;margin-top:6px}
+.modal-actions button{flex:1}
+
+.save{background:#1e88e5;color:#fff}
+.delete{background:#e53935;color:#fff}
+.cancel{background:#bbb}
+.audio{background:#2ecc71;color:#fff}
+
+/* waveform */
+.waveBtn{position:relative;overflow:hidden}
+.wave{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;gap:3px}
+.wave span{width:3px;height:10px;background:white;border-radius:2px;animation:wave 1s infinite}
+.wave span:nth-child(2){animation-delay:.1s}
+.wave span:nth-child(3){animation-delay:.2s}
+.wave span:nth-child(4){animation-delay:.3s}
+.wave span:nth-child(5){animation-delay:.4s}
+
+@keyframes wave{
+0%,100%{height:8px}
+50%{height:18px}
+}
+
+.recording{background:#3b82f6 !important;color:transparent !important}
+
+/* ===== FIX ANDROID MODAL CROP (SAFE) ===== */
+@supports (-webkit-touch-callout: none) {}
+
+@supports not (-webkit-touch-callout: none) {
+  .modal {align-items:flex-start !important;padding:20px 0 !important;}
+  .modal-content {max-height:90dvh !important;overflow-y:auto !important;margin:20px auto !important;}
+}
+
+@supports not (-webkit-touch-callout: none) {
+  .modal-content{max-height:92vh;height:auto;display:flex;flex-direction:column;}
+  .modal-body{overflow:auto;-webkit-overflow-scrolling:touch;}
+  .modal-actions{flex-shrink:0;position:sticky;bottom:0;background:#fff;}
+}
+
+@supports not (-webkit-touch-callout: none) {
+  .modal{align-items:flex-start !important;overflow:auto !important;}
+  .modal-content{max-height:none !important;height:auto !important;}
+}
+
+#checkIPA{margin-top:2px}
+#checkMeaning{margin-top:2px}
+#checkResult{margin-top:6px;font-weight:600}
+</style>
+</head>
+
+<body>
+
+<header>
+<h1>📘 My Vocab Ultimate</h1>
+<div style="font-size:12px;color:#888;margin-top:2px">
+EXPERIMENT VERSION
+</div>
+<div class="count" id="count"></div>
+
+<div class="controls">
+<button class="import" onclick="importCSV()">📥 Import</button>
+<button class="export" onclick="exportCSV()">📤 Export</button>
+<button class="deleteall" onclick="deleteAll()">🧨 Delete All</button>
+<button class="favbtn" onclick="toggleFavView()">⭐ Favorites</button>
+<button class="refresh" onclick="resetView()">🔄</button>
+<button class="pronounce" onclick="openChecker()">Pronounce</button>
+<button class="add" onclick="openModal()">＋</button>
+</div>
+
+<input class="search" id="search" placeholder="Search word or meaning..." oninput="render()">
+</header>
+
+<main id="list"></main>
+
+<!-- vocab modal -->
+<div class="modal" id="modal">
+<div class="modal-content">
+
+<input id="word" placeholder="Word">
+<input id="pron" placeholder="Pronunciation">
+<textarea id="meaning" rows="2" placeholder="Meaning"></textarea>
+
+<textarea id="ex1" rows="2" placeholder="Example 1"></textarea>
+<textarea id="ipa1" rows="2" placeholder="IPA Example 1"></textarea>
+<textarea id="tr1" rows="2" placeholder="Translation 1"></textarea>
+
+<textarea id="ex2" rows="2" placeholder="Example 2"></textarea>
+<textarea id="ipa2" rows="2" placeholder="IPA Example 2"></textarea>
+<textarea id="tr2" rows="2" placeholder="Translation 2"></textarea>
+
+<div class="modal-actions">
+<button class="audio" onclick="speakExample(1)">🔊 Ex1</button>
+<button class="audio" onclick="speakExample(2)">🔊 Ex2</button>
+</div>
+
+<div class="modal-actions">
+<button class="save" onclick="save()">Save</button>
+<button class="delete" onclick="remove()">Delete</button>
+<button class="cancel" onclick="closeModal()">Cancel</button>
+</div>
+
+</div>
+</div>
+
+<!-- checker -->
+<div class="modal" id="checkerModal">
+<div class="modal-content">
+
+<div style="display:flex;gap:6px;align-items:center">
+  <input id="checkInput" placeholder="Type word..." oninput="loadCheckWord()">
+  <button onclick="clearCheck()" style="margin-left:6px">↻</button>
+</div>
+
+<div id="checkWord" style="font-size:22px;font-weight:700"></div>
+<div id="checkIPA" style="color:#26a69a"></div>
+
+<!-- MEANING TERPISAH -->
+<div id="checkMeaning"></div>
+
+<!-- RESULT TERPISAH -->
+<div id="checkResult"></div>
+
+<div class="modal-actions">
+<button class="audio" onclick="hearWord()">Hear</button>
+
+<button id="testBtn" class="save waveBtn" onclick="testWord()">
+<span class="label">Test</span>
+<div class="wave" id="wave" style="display:none">
+<span></span><span></span><span></span><span></span><span></span>
+</div>
+</button>
+
+<button class="cancel" onclick="closeChecker()">Close</button>
+</div>
+
+</div>
+</div>
+
+<script>
+let data=JSON.parse(localStorage.getItem("vocab")||"[]")
+let editIndex=null
+let favOnly=false
+let checkEnglish=""
+
+function render(){
+const list=document.getElementById("list")
+const q=document.getElementById("search").value.toLowerCase()
+list.innerHTML=""
+
+let arr=data.filter(v=>{
+if(favOnly && !v.fav) return false
+return v.word.toLowerCase().includes(q) || (v.meaning||"").toLowerCase().includes(q)
+})
+
+document.getElementById("count").innerText=`Total vocabulary: ${data.length} words`
+
+arr.forEach(v=>{
+const i=data.indexOf(v)
+const d=document.createElement("div")
+d.className="card"
+d.innerHTML=`
+<div class="word" onclick="edit(${i})">${v.word}</div>
+<div class="pron">${v.pron||""}</div>
+<div class="meaning">${v.meaning||""}</div>
+<div class="icons">
+<span onclick="speak('${v.word}')">🔊</span>
+<span onclick="speakSlow('${v.word}')">🐢</span>
+</div>
+<div class="star" onclick="toggleFav(${i})">${v.fav?"⭐":"☆"}</div>
+`
+list.appendChild(d)
+})
+
+localStorage.setItem("vocab",JSON.stringify(data))
+}
+
+function openModal(){
+editIndex=null
+word.value=pron.value=meaning.value=""
+ex1.value=ipa1.value=tr1.value=""
+ex2.value=ipa2.value=tr2.value=""
+modal.style.display="flex"
+}
+function closeModal(){modal.style.display="none"}
+
+function save(){
+const v={
+word:word.value,
+pron:pron.value,
+meaning:meaning.value,
+ex1:ex1.value,
+ipa1:ipa1.value,
+tr1:tr1.value,
+ex2:ex2.value,
+ipa2:ipa2.value,
+tr2:tr2.value,
+fav:editIndex!==null?data[editIndex].fav:false
+}
+if(editIndex===null)data.push(v)
+else data[editIndex]=v
+closeModal();render()
+}
+
+function edit(i){
+editIndex=i
+const v=data[i]
+word.value=v.word||""
+pron.value=v.pron||""
+meaning.value=v.meaning||""
+ex1.value=v.ex1||""
+ipa1.value=v.ipa1||""
+tr1.value=v.tr1||""
+ex2.value=v.ex2||""
+ipa2.value=v.ipa2||""
+tr2.value=v.tr2||""
+modal.style.display="flex"
+}
+
+function remove(){
+if(editIndex!==null){data.splice(editIndex,1);closeModal();render()}
+}
+
+function deleteAll(){if(confirm("Delete all vocabulary?")){data=[];render()}}
+function toggleFav(i){data[i].fav=!data[i].fav;render()}
+function toggleFavView(){favOnly=!favOnly;render()}
+function resetView(){favOnly=false;search.value="";render()}
+
+function speak(t){speechSynthesis.speak(new SpeechSynthesisUtterance(t))}
+function speakSlow(t){let u=new SpeechSynthesisUtterance(t);u.rate=0.6;speechSynthesis.speak(u)}
+function speakExample(n){let txt=n===1?ex1.value:ex2.value;if(txt)speak(txt)}
+
+function openChecker(){checkerModal.style.display="flex";checkInput.focus()}
+function closeChecker(){checkerModal.style.display="none"}
+
+async function fetchIndoMeaning(text){
+try{
+let r=await fetch("https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=id&dt=t&q="+encodeURIComponent(text))
+let j=await r.json()
+return j[0]?.map(x=>x[0]).join("")||""
+}catch{return""}
+}
+
+async function fetchEnglishMeaning(text){
+try{
+let r = await fetch("https://translate.googleapis.com/translate_a/single?client=gtx&sl=id&tl=en&dt=t&q=" + encodeURIComponent(text))
+let j = await r.json()
+return j[0]?.map(x=>x[0]).join("") || ""
+}catch{return ""}
+}
+
+async function loadCheckWord(){
+let raw = checkInput.value.trim()
+checkEnglish=""
+if(!raw){
+  checkWord.innerText=""
+  checkIPA.innerText=""
+  checkMeaning.innerHTML=""
+  checkResult.innerHTML=""
+  return
+}
+
+checkWord.innerText = raw
+
+let indo = await fetchIndoMeaning(raw)
+let eng = await fetchEnglishMeaning(raw)
+
+if(indo && indo.toLowerCase() !== raw.toLowerCase()){
+  checkMeaning.innerHTML = "Arti: " + indo
+  try{
+    let r = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${raw.toLowerCase()}`)
+    let j = await r.json()
+    let ipa = j[0]?.phonetics?.find(p=>p.text)?.text || ""
+    checkIPA.innerText = ipa
+  }catch{checkIPA.innerText=""}
+  checkResult.innerHTML=""
+  return
+}
+
+if(eng && eng.toLowerCase() !== raw.toLowerCase()){
+  checkMeaning.innerHTML = "English: " + eng
+  checkIPA.innerText = ""
+  checkEnglish = eng
+  checkResult.innerHTML=""
+  return
+}
+
+checkMeaning.innerHTML=""
+checkIPA.innerText=""
+checkResult.innerHTML=""
+}
+
+function hearWord(){
+  if(checkEnglish){speak(checkEnglish)}
+  else if(checkWord.innerText){speak(checkWord.innerText)}
+}
+
+function testWord(){
+if(!checkWord.innerText)return
+const btn=document.getElementById("testBtn")
+const wave=document.getElementById("wave")
+btn.classList.add("recording")
+wave.style.display="flex"
+
+const SR=window.SpeechRecognition||window.webkitSpeechRecognition
+if(!SR){btn.classList.remove("recording");wave.style.display="none";return}
+
+const recognition=new SR()
+recognition.lang="en-US"
+
+recognition.onresult = e => {
+  let spoken = (e.results[0][0].transcript || "").toLowerCase().replace(/[^a-z']/g,"")
+  let target = (checkEnglish || checkWord.innerText || "").toLowerCase().replace(/[^a-z']/g,"")
+
+  if(spoken.includes(target) && target.length>0){
+    checkResult.innerHTML="✔ Correct"
+  }else{
+    checkResult.innerHTML="✖ Wrong"
+    hearWord()
+  }
+
+  btn.classList.remove("recording")
+  wave.style.display="none"
+  recognition.stop()
+}
+
+recognition.onerror=()=>{btn.classList.remove("recording");wave.style.display="none"}
+recognition.onend=()=>{btn.classList.remove("recording");wave.style.display="none"}
+recognition.start()
+}
+
+function exportCSV(){
+let csv="word,pron,meaning,ex1,ipa1,tr1,ex2,ipa2,tr2,fav\n"
+data.forEach(v=>{
+csv+=`"${v.word}","${v.pron}","${v.meaning}","${v.ex1}","${v.ipa1}","${v.tr1}","${v.ex2}","${v.ipa2}","${v.tr2}","${v.fav?1:0}"\n`
+})
+const a=document.createElement("a")
+a.href=URL.createObjectURL(new Blob(["\uFEFF"+csv],{type:"text/csv;charset=utf-8;"}))
+a.download="my-vocab.csv"
+a.click()
+}
+
+function importCSV(){
+const i=document.createElement("input")
+i.type="file"
+i.accept=".csv"
+i.onchange=e=>{
+const r=new FileReader()
+r.onload=()=>{
+const lines=r.result.split(/\r?\n/).slice(1)
+data=[]
+lines.forEach(l=>{
+if(!l.trim())return
+const c = l.split(/,(?=(?:[^"]*"[^"]*")*[^"]*$)/)
+if(!c)return
+data.push({
+word:c[0]?.replace(/"/g,"")||"",
+pron:c[1]?.replace(/"/g,"")||"",
+meaning:c[2]?.replace(/"/g,"")||"",
+ex1:c[3]?.replace(/"/g,"")||"",
+ipa1:c[4]?.replace(/"/g,"")||"",
+tr1:c[5]?.replace(/"/g,"")||"",
+ex2:c[6]?.replace(/"/g,"")||"",
+ipa2:c[7]?.replace(/"/g,"")||"",
+tr2:c[8]?.replace(/"/g,"")||"",
+fav:((c[9] ?? c[c.length-1]) || "").replace(/[^0-9]/g,"")=="1"
+})
+})
+render()
+alert("Import sukses")
+}
+r.readAsText(e.target.files[0])
+}
+i.click()
+}
+
+function clearCheck(){
+  const inp = document.getElementById("checkInput")
+  inp.value = ""
+  loadCheckWord()
+  inp.focus()
+}
+
+render()
+</script>
+
+</body>
+</html>
