@@ -218,7 +218,9 @@ loadDaily()
 }
 
 function closeDaily(){
-  dailyModal.style.display="none"
+  if(confirm("Exit Daily Test?")){
+    dailyModal.style.display="none"
+  }
 }
 
 function loadDaily(){
