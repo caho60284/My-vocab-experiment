@@ -23,6 +23,7 @@ button{border:none;border-radius:10px;padding:10px 12px;font-size:14px}
 .refresh{background:#27ae60;color:#fff}
 .pronounce{background:#14b8a6;color:#fff}
 .add{background:#e3f2fd}
+.daily{background:#8e44ad;color:#fff}
 
 .search{margin-top:10px;width:100%;padding:12px;border-radius:12px;border:1px solid #ccc;font-size:16px}
 
@@ -67,23 +68,10 @@ width:100%;margin-bottom:10px;padding:12px;border-radius:10px;border:1px solid #
 
 .recording{background:#3b82f6 !important;color:transparent !important}
 
-/* ===== FIX ANDROID MODAL CROP (SAFE) ===== */
-@supports (-webkit-touch-callout: none) {}
-
+/* Android modal fix */
 @supports not (-webkit-touch-callout: none) {
   .modal {align-items:flex-start !important;padding:20px 0 !important;}
   .modal-content {max-height:90dvh !important;overflow-y:auto !important;margin:20px auto !important;}
-}
-
-@supports not (-webkit-touch-callout: none) {
-  .modal-content{max-height:92vh;height:auto;display:flex;flex-direction:column;}
-  .modal-body{overflow:auto;-webkit-overflow-scrolling:touch;}
-  .modal-actions{flex-shrink:0;position:sticky;bottom:0;background:#fff;}
-}
-
-@supports not (-webkit-touch-callout: none) {
-  .modal{align-items:flex-start !important;overflow:auto !important;}
-  .modal-content{max-height:none !important;height:auto !important;}
 }
 
 #checkIPA{margin-top:2px}
@@ -108,6 +96,7 @@ EXPERIMENT VERSION
 <button class="favbtn" onclick="toggleFavView()">⭐ Favorites</button>
 <button class="refresh" onclick="resetView()">🔄</button>
 <button class="pronounce" onclick="openChecker()">Pronounce</button>
+<button class="daily" onclick="openDaily()">📅 Daily20</button>
 <button class="add" onclick="openModal()">＋</button>
 </div>
 
@@ -157,11 +146,7 @@ EXPERIMENT VERSION
 
 <div id="checkWord" style="font-size:22px;font-weight:700"></div>
 <div id="checkIPA" style="color:#26a69a"></div>
-
-<!-- MEANING TERPISAH -->
 <div id="checkMeaning"></div>
-
-<!-- RESULT TERPISAH -->
 <div id="checkResult"></div>
 
 <div class="modal-actions">
@@ -180,12 +165,96 @@ EXPERIMENT VERSION
 </div>
 </div>
 
+<!-- DAILY QUIZ -->
+<div class="modal" id="dailyModal">
+<div class="modal-content">
+
+<!-- HEADER + CLOSE -->
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+  <div style="font-weight:700;font-size:18px">
+    Daily Vocabulary Test
+  </div>
+  <div onclick="closeDaily()" style="font-size:20px;cursor:pointer">✕</div>
+</div>
+
+<div id="dailyQuestion" style="font-size:22px;font-weight:700"></div>
+<div id="dailyPron" style="color:#26a69a;margin-top:4px"></div>
+
+<input id="dailyAnswer" placeholder="Type meaning..." style="margin-top:10px">
+
+<div id="dailyResult" style="margin-top:6px;font-weight:600"></div>
+
+<div class="modal-actions">
+<button class="audio" onclick="dailyHear()">🔊</button>
+<button class="save" onclick="submitDaily()">OK</button>
+<button class="cancel" onclick="nextDaily()">Next</button>
+</div>
+
+<div style="margin-top:6px;font-size:13px;color:#666" id="dailyProgress"></div>
+
+</div>
+</div>
+<script src="daily.js"></script>
+
 <script>
 let data=JSON.parse(localStorage.getItem("vocab")||"[]")
 let editIndex=null
 let favOnly=false
 let checkEnglish=""
 
+/* ===== DAILY ===== */
+let dailyList=[]
+let dailyIndex=0
+let dailyScore=0
+
+function openDaily(){
+if(!window.MyVocabDaily){alert("daily.js missing");return}
+dailyList=window.MyVocabDaily.getTodayTest()||[]
+if(!dailyList.length){alert("No vocab");return}
+dailyIndex=0
+dailyScore=0
+dailyModal.style.display="flex"
+loadDaily()
+}
+
+function closeDaily(){
+  dailyModal.style.display="none"
+}
+
+function loadDaily(){
+const v=dailyList[dailyIndex]
+dailyQuestion.innerText=v.word
+dailyPron.innerText=v.pron||""
+dailyAnswer.value=""
+dailyResult.innerText=""
+dailyProgress.innerText=`${dailyIndex+1}/${dailyList.length} | Score ${dailyScore}`
+}
+
+function submitDaily(){
+const v=dailyList[dailyIndex]
+const ans=dailyAnswer.value.trim().toLowerCase()
+const target=(v.meaning||"").trim().toLowerCase()
+if(!ans)return
+if(ans.includes(target)||target.includes(ans)){
+dailyScore++
+dailyResult.innerText="✔ Correct"
+}else{
+dailyResult.innerText="✖ "+v.meaning
+}
+}
+
+function nextDaily(){
+dailyIndex++
+if(dailyIndex>=dailyList.length){
+dailyResult.innerText=`Done ✔ ${dailyScore}/${dailyList.length}`
+return
+}
+loadDaily()
+}
+
+function dailyHear(){speak(dailyQuestion.innerText)}
+
+/* ===== CORE APP (UNCHANGED) ===== */
 function render(){
 const list=document.getElementById("list")
 const q=document.getElementById("search").value.toLowerCase()
